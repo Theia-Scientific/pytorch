@@ -994,7 +994,12 @@ def _free_unbacked_symbols_with_path(
                 real=a.real_tensor.size() if a.real_tensor is not None else None,
             )
         )
-        if a.layout != torch.sparse_csr:
+        if a.layout not in [
+            torch.sparse_csr,
+            torch.sparse_csc,
+            torch.sparse_bsr,
+            torch.sparse_bsc,
+        ]:
             r.update(
                 go(
                     a.stride(),
