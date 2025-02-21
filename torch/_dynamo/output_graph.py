@@ -93,6 +93,7 @@ from .utils import (
     get_instruction_source_311,
     get_locals_to_steal,
     get_static_address_type,
+    get_unique_name_wrt,
     graph_break_reasons,
     increment_op_count,
     lazy_format_graph_code,
@@ -630,9 +631,11 @@ class OutputGraph:
         """
         global_state = cast(
             dict[str, tuple[Callable[..., Any], bool]],
-            out
-            if out is not None
-            else self.tracing_context.global_context.global_state,
+            (
+                out
+                if out is not None
+                else self.tracing_context.global_context.global_state
+            ),
         )
 
         # TODO - Consider having a torch level API for torch_function_state. As
@@ -723,6 +726,17 @@ class OutputGraph:
             name = "sub" + name
 
         return name
+
+    def register_static_attr_and_return_proxy(
+        self, attr_prefix: str, attr_value: Any
+    ) -> fx.Proxy:
+        attr_name = get_unique_name_wrt(attr_prefix, self.nn_modules)
+        # TODO `nn_modules` has been historically overloaded to store a lot more
+        # than just nn module objects, fix that.
+        self.nn_modules[attr_name] = attr_value
+        proxy = self.create_proxy("get_attr", attr_name, (), {})
+        set_example_value(proxy.node, attr_value)
+        return proxy
 
     def register_attr_or_module(
         self,

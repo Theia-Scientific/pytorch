@@ -1299,6 +1299,34 @@ class FrozenDataClassVariable(UserDefinedObjectVariable):
             fields = {}
         self.fields = fields
 
+    def as_python_constant(self):
+        # NOTE: this is an intentionally limited version of
+        # `as_python_constant` for `nonstrict_trace` implementation.
+        from dataclasses import fields
+
+        import torch.utils._pytree as pytree
+
+        if not istype(self.value, (pytree.TreeSpec, pytree.LeafSpec)):
+            # TODO loosen this restriction and fix `as_proxy`.
+            raise NotImplementedError(
+                "currently can't reconstruct arbitrary frozen dataclass instances"
+            )
+
+        args = []
+        kwargs = {}
+        for field in fields(self.value):
+            if field.init:
+                data = self.fields[field.name].as_python_constant()
+                if getattr(field, "kw_only", False):
+                    kwargs[field.name] = data
+                else:
+                    args.append(data)
+
+        # This is safe because we know the TreeSpec classes constructors don't
+        # have external side effects.
+        ctor = self.python_type()
+        return ctor(*args, **kwargs)
+
     def as_proxy(self):
         from dataclasses import fields
 
