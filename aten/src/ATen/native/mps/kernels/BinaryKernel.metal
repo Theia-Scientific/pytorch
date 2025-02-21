@@ -3,6 +3,20 @@
 #include <metal_stdlib>
 using namespace metal;
 
+struct add_functor {
+  template <typename T>
+  inline T operator()(const T a, const T b) {
+    return static_cast<T>(a + b);
+  }
+};
+
+struct sub_functor {
+  template <typename T>
+  inline T operator()(const T a, const T b) {
+    return static_cast<T>(a - b);
+  }
+};
+
 struct fmax_functor {
   template <typename T>
   inline T operator()(const T a, const T b) {
@@ -153,6 +167,14 @@ REGISTER_BINARY_INDEXING_OP(nextafter, float);
 REGISTER_BINARY_INDEXING_OP(nextafter, half);
 REGISTER_BINARY_INDEXING_OP(zeta, float);
 REGISTER_BINARY_INDEXING_OP(zeta, half);
+REGISTER_BINARY_INDEXING_OP(add, long);
+REGISTER_BINARY_INDEXING_OP(add, int);
+REGISTER_BINARY_INDEXING_OP(add, float);
+REGISTER_BINARY_INDEXING_OP(add, half);
+REGISTER_BINARY_INDEXING_OP(add, short);
+REGISTER_BINARY_INDEXING_OP(add, uchar);
+REGISTER_BINARY_INDEXING_OP(add, char);
+REGISTER_BINARY_INDEXING_OP(add, bool);
 
 #if __METAL_VERSION__ >= 310
 REGISTER_BINARY_INDEXING_OP(copysign, bfloat);
@@ -160,6 +182,7 @@ REGISTER_BINARY_INDEXING_OP(fmax, bfloat);
 REGISTER_BINARY_INDEXING_OP(fmin, bfloat);
 REGISTER_BINARY_INDEXING_OP(nextafter, bfloat);
 REGISTER_BINARY_INDEXING_OP(zeta, bfloat);
+REGISTER_BINARY_INDEXING_OP(add, bfloat);
 #endif
 
 // Complex binary functions
