@@ -30,7 +30,7 @@ from torch.testing._internal.common_utils import (
     IS_CI,
     IS_WINDOWS,
 )
-from torch._dynamo.device_interface import get_interface_for_device
+from torch.utils._triton import has_triton
 
 log: logging.Logger = logging.getLogger(__name__)
 
@@ -64,38 +64,20 @@ def has_inductor_available(device_type: str) -> bool:
         return False
 
 
-def has_triton_backend_available(device_type: str) -> bool:
-    try:
-        di = get_interface_for_device(device_type)
-        di.raise_if_triton_unavailable(None)
-        return True
-    except RuntimeError:
-        return False
-
-
-def _has_triton() -> bool:
-    try:
-        import triton.runtime
-
-        return triton.runtime.driver.active.is_active()
-    except (RuntimeError, ImportError):
-        return False
-
-
-HAS_TRITON = _has_triton()
+HAS_TRITON = has_triton()
 
 # Triton for CPU is available.
-HAS_CPU_TRITON = LazyVal(lambda: HAS_TRITON and has_triton_backend_available("cpu"))
+HAS_CPU_TRITON = LazyVal(lambda: HAS_TRITON and has_triton("cpu"))
 
 # We have a CUDA device and a compatible Inductor backend.
 HAS_CUDA = LazyVal(lambda: torch.cuda.is_available() and has_inductor_available("cuda"))
 # We have a CUDA device and the CUDA Triton backend for Inductor is available.
-HAS_CUDA_TRITON = LazyVal(lambda: HAS_CUDA and has_triton_backend_available("cuda"))
+HAS_CUDA_TRITON = LazyVal(lambda: HAS_CUDA and has_triton("cuda"))
 
 # We have an XPU device and a compatible Inductor backend.
 HAS_XPU = LazyVal(lambda: torch.xpu.is_available() and has_inductor_available("xpu"))
 # We have an XPU device and the XPU Triton backend for Inductor is available.
-HAS_XPU_TRITON = LazyVal(lambda: HAS_XPU and has_triton_backend_available("xpu"))
+HAS_XPU_TRITON = LazyVal(lambda: HAS_XPU and has_triton("xpu"))
 
 # MPS is available on this system and the Inductor backend is available.
 HAS_MPS = LazyVal(lambda: torch.mps.is_available() and has_inductor_available("mps"))
