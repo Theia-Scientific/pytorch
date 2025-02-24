@@ -5,11 +5,15 @@ import torch
 import re
 import unittest
 import functools
+import contextlib
 import os
 from subprocess import CalledProcessError
 import sys
 import torch._inductor.async_compile  # noqa: F401 required to warm up AsyncCompile pools
 from typing import Callable
+from torch.fx.experimental.proxy_tensor import make_fx
+from torch._inductor.graph import GraphLowering
+from torch._inductor.compile_fx import shape_env_from_inputs
 from torch._inductor.codecache import CppCodeCache
 from torch._inductor.utils import get_gpu_shared_memory, is_big_gpu
 from torch._inductor.utils import GPU_TYPES, get_gpu_type
@@ -92,6 +96,9 @@ HAS_CUDA_TRITON = LazyVal(lambda: HAS_CUDA and has_triton_backend_available("cud
 HAS_XPU = LazyVal(lambda: torch.xpu.is_available() and has_inductor_available("xpu"))
 # We have an XPU device and the XPU Triton backend for Inductor is available.
 HAS_XPU_TRITON = LazyVal(lambda: HAS_XPU and has_triton_backend_available("xpu"))
+
+# MPS is available on this system and the Inductor backend is available.
+HAS_MPS = LazyVal(lambda: torch.mps.is_available() and has_inductor_available("mps"))
 
 HAS_GPU = LazyVal(lambda: HAS_CUDA or HAS_XPU)
 HAS_GPU_TRITON = LazyVal(lambda: HAS_CUDA_TRITON or HAS_XPU_TRITON)
@@ -183,7 +190,8 @@ def _skip_lazily_if_decorator(cb: Callable[[], bool], msg: str):
 
 
 requires_cuda = _skip_lazily_if_decorator(lambda: not HAS_CUDA, "requires CUDA device with Inductor support")
-requires_gpu = _skip_lazily_if_decorator(lambda: not HAS_GPU, "requires GPU with Inductor support")
+# TODO: Remove HAS_MPS condition  when `HAS_GPU` includes HAS_MPS
+requires_gpu = _skip_lazily_if_decorator(lambda: not (HAS_GPU or HAS_MPS), "requires GPU with Inductor support")
 requires_triton = _skip_lazily_if_decorator(lambda: not HAS_TRITON, "requires Triton")
 requires_gpu_triton = _skip_lazily_if_decorator(lambda: not HAS_GPU_TRITON, "requires GPU and Triton")
 
@@ -205,3 +213,67 @@ IS_A100 = LazyVal(lambda: HAS_CUDA and get_gpu_shared_memory() == 166912)
 IS_H100 = LazyVal(lambda: HAS_CUDA and get_gpu_shared_memory() == 232448)
 
 IS_BIG_GPU = LazyVal(lambda: HAS_CUDA and is_big_gpu())
+
+def dummy_graph() -> GraphLowering:
+    """
+    Create a graph. This is useful for unit testing code which accesses
+    V.graph.sizevars.
+    """
+    example_inputs = [torch.randn(10) for _ in range(2)]
+    gm = make_fx(torch.add, tracing_mode="fake")(*example_inputs)
+    shape_env = shape_env_from_inputs(example_inputs)
+    graph = GraphLowering(
+        gm,
+        shape_env=shape_env,
+    )
+
+    return graph
+
+def maybe_skip_size_asserts(op):
+    """
+    For certain ops, there meta and eager implementation returns differents
+    strides. This cause size/strides assert fail. Skip adding those
+    asserts for now.
+    """
+    if (
+        op.aten_name
+        in (
+            "fft_hfftn",
+            "fft_hfft",
+            "fft_hfft2",
+            "fft_ihfftn",
+            "fft_fft",
+            "fft_fft2",
+            "fft_fftn",
+            "fft_ifft",
+            "fft_ifft2",
+            "fft_ifftn",
+            "fft_irfft",
+            "fft_irfft2",
+            "fft_irfftn",
+            "fft_ihfft",
+            "fft_ihfft2",
+            "fft_rfft",
+            "fft_rfft2",
+            "fft_rfftn",
+            "linalg_eig",
+            "linalg_eigvals",
+        )
+        and "TORCHINDUCTOR_SIZE_ASSERTS" not in os.environ
+    ):
+        return torch._inductor.config.patch(size_asserts=False)
+    else:
+        return contextlib.nullcontext()
+
+def clone_preserve_strides_offset(x, device=None):
+    if not isinstance(x, torch.Tensor):
+        return x
+    buffer = torch.as_strided(
+        x, (x.untyped_storage().size() // x.element_size(),), (1,), 0
+    )
+    if not device:
+        buffer = buffer.clone()
+    else:
+        buffer = buffer.to(device, copy=True)
+    out = torch.as_strided(buffer, x.size(), x.stride(), x.storage_offset())
+    return out

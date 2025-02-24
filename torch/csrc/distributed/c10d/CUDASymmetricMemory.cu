@@ -6,7 +6,6 @@
 #include <ATen/cuda/CUDAContext.h>
 #include <c10/cuda/CUDACachingAllocator.h>
 #include <c10/cuda/CUDAGuard.h>
-#include <c10/util/env.h>
 #include <c10/util/error.h>
 
 #if !defined(USE_ROCM) && defined(PYTORCH_C10_DRIVER_API_SUPPORTED)
@@ -178,10 +177,10 @@ class IpcChannel {
 
  private:
   static std::string get_socket_name(int pid) {
-    std::string tmp_dir = "/tmp";
+    const char* tmp_dir = "/tmp";
     for (const char* env_var : {"TMPDIR", "TMP", "TEMP", "TEMPDIR"}) {
-      if (const auto path = c10::utils::get_env(env_var)) {
-        tmp_dir = path.value();
+      if (const char* path = getenv(env_var)) {
+        tmp_dir = path;
         break;
       }
     }
@@ -459,7 +458,7 @@ static __global__ void barrier_kernel(
     if (target_rank == rank) {
       return;
     }
-    auto put_success = try_put_signal<MemOpSem::Release>(
+    auto put_success = try_put_signal<std::memory_order_release>(
         signal_pads[target_rank] + world_size * channel + rank, timeout_ms);
     if (!put_success) {
       printf(
@@ -471,7 +470,7 @@ static __global__ void barrier_kernel(
           timeout_ms);
       trap();
     }
-    auto wait_success = try_wait_signal<MemOpSem::Acquire>(
+    auto wait_success = try_wait_signal<std::memory_order_acquire>(
         signal_pads[rank] + world_size * channel + target_rank, timeout_ms);
     if (!wait_success) {
       printf(
@@ -506,7 +505,7 @@ static __global__ void put_signal_kernel(
     int world_size,
     size_t timeout_ms) {
   if (threadIdx.x == 0) {
-    bool success = try_put_signal<MemOpSem::Release>(
+    bool success = try_put_signal<std::memory_order_release>(
         signal_pads[dst_rank] + world_size * channel + rank, timeout_ms);
     if (!success) {
       printf(
@@ -545,7 +544,7 @@ static __global__ void wait_signal_kernel(
     int world_size,
     size_t timeout_ms) {
   if (threadIdx.x == 0) {
-    bool success = try_wait_signal<MemOpSem::Acquire>(
+    bool success = try_wait_signal<std::memory_order_acquire>(
         signal_pads[rank] + world_size * channel + src_rank, timeout_ms);
     if (!success) {
       printf(
