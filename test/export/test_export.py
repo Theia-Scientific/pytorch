@@ -75,7 +75,7 @@ from torch.testing._internal.custom_tensor import (
     ConstantExtraMetadataTensor,
     CustomTensorPlainOut,
 )
-from torch.testing._internal.inductor_utils import GPU_TYPE, HAS_TRITON
+from torch.testing._internal.inductor_utils import GPU_TYPE
 from torch.testing._internal.triton_utils import requires_cuda, requires_gpu
 from torch.testing._internal.two_tensor import TwoTensor
 from torch.utils._pytree import (
@@ -87,12 +87,13 @@ from torch.utils._pytree import (
     treespec_dumps,
     treespec_loads,
 )
+from torch.utils._triton import has_triton_package
 
 
 if not IS_MACOS:
     from torch.testing._internal.distributed.fake_pg import FakeStore
 
-if HAS_TRITON:
+if has_triton_package():
     import triton
     import triton.language as tl
 

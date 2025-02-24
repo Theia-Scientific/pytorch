@@ -4,14 +4,14 @@
 from torch.testing._internal.inductor_utils import (  # noqa: F401 unused-import
     HAS_CUDA,
     HAS_GPU,
-    HAS_TRITON,
     requires_cuda,
     requires_gpu,
     requires_gpu_triton,
 )
+from torch.utils._triton import has_triton_package
 
 
-if HAS_TRITON:
+if has_triton_package():
     import triton
     from triton import language as tl
 

@@ -40,7 +40,7 @@ from torch.testing._internal.triton_utils import *  # noqa: F403
 from torch.utils._triton import has_triton_package, has_triton_tma
 
 
-if HAS_GPU_TRITON:
+if has_triton_package():
     import triton
     from triton import language as tl
 
@@ -2332,7 +2332,7 @@ def make_mutation_test(fn):
 
 # Triton codegen suffers from scoping issues.
 # Define helpers here
-if HAS_TRITON:
+if has_triton_package():
 
     @triton.jit
     def helper_id(p):

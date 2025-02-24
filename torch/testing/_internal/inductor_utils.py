@@ -64,10 +64,8 @@ def has_inductor_available(device_type: str) -> bool:
         return False
 
 
-HAS_TRITON = has_triton()
-
 # Triton for CPU is available.
-HAS_CPU_TRITON = LazyVal(lambda: HAS_TRITON and has_triton("cpu"))
+HAS_CPU_TRITON = LazyVal(lambda: has_triton("cpu"))
 
 # We have a CUDA device and a compatible Inductor backend.
 HAS_CUDA = LazyVal(lambda: torch.cuda.is_available() and has_inductor_available("cuda"))
@@ -172,9 +170,9 @@ def _skip_lazily_if_decorator(cb: Callable[[], bool], msg: str):
 
 
 requires_cuda = _skip_lazily_if_decorator(lambda: not HAS_CUDA, "requires CUDA device with Inductor support")
-# TODO: Remove HAS_MPS condition  when `HAS_GPU` includes HAS_MPS
+# TODO: Remove HAS_MPS condition when `HAS_GPU` includes HAS_MPS
 requires_gpu = _skip_lazily_if_decorator(lambda: not (HAS_GPU or HAS_MPS), "requires GPU with Inductor support")
-requires_triton = _skip_lazily_if_decorator(lambda: not HAS_TRITON, "requires Triton")
+requires_triton = _skip_lazily_if_decorator(lambda: not has_triton(), "requires a device with Triton support")
 requires_gpu_triton = _skip_lazily_if_decorator(lambda: not HAS_GPU_TRITON, "requires GPU and Triton")
 
 def requires_cuda_with_enough_memory(min_mem_required):

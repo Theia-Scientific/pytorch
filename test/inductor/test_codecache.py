@@ -41,14 +41,14 @@ from torch.testing._internal.inductor_utils import (
     HAS_CUDA,
     HAS_GPU,
     HAS_MULTIGPU,
-    HAS_TRITON,
     requires_gpu,
     requires_triton,
 )
 from torch.testing._internal.triton_utils import requires_cuda
+from torch.utils._triton import has_triton_package
 
 
-if HAS_TRITON:
+if has_triton_package():
     import triton  # @manual
 
     from torch.testing._internal.triton_utils import add_kernel, sub_kernel

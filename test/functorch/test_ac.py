@@ -6,11 +6,12 @@ from math import prod
 import torch
 import torch._functorch.config as config
 from torch.testing._internal.common_utils import run_tests, TEST_WITH_ROCM, TestCase
-from torch.testing._internal.inductor_utils import HAS_CUDA, HAS_CUDA_TRITON, HAS_TRITON
+from torch.testing._internal.inductor_utils import HAS_CUDA, HAS_CUDA_TRITON
+from torch.utils._triton import has_triton_package
 from torch.utils.flop_counter import FlopCounterMode, register_flop_formula
 
 
-if HAS_TRITON:
+if has_triton_package():
     # note: if we only import triton in the test, the test fails:
     # def relu_kernel_(inp_ptr, out_ptr, sz, BLOCK_SIZE: tl.constexpr):
     # NameError('tl is not defined')
