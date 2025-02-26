@@ -885,6 +885,27 @@ static PyObject* THPModule_userEnabledMkldnn(
     Py_RETURN_FALSE;
 }
 
+static PyObject* THPModule_setSDPUseOneDNN(PyObject* _unused, PyObject* arg) {
+  HANDLE_TH_ERRORS
+  TORCH_CHECK(
+      PyBool_Check(arg),
+      "set_sdp_use_onednn expects a bool, "
+      "but got %s",
+      THPUtils_typename(arg));
+  at::globalContext().setSDPUseOneDNN(arg == Py_True);
+  Py_RETURN_NONE;
+  END_HANDLE_TH_ERRORS
+}
+
+static PyObject* THPModule_userEnabledOneDNNSDP(
+    PyObject* _unused,
+    PyObject* noargs) {
+  if (at::globalContext().userEnabledOneDNNSDP())
+    Py_RETURN_TRUE;
+  else
+    Py_RETURN_FALSE;
+}
+
 static PyObject* THPModule_setDeterministicCuDNN(
     PyObject* _unused,
     PyObject* arg) {
@@ -1546,6 +1567,11 @@ static std::initializer_list<PyMethodDef> TorchMethods = {
     {"_set_sdp_use_cudnn", THPModule_setSDPUseCuDNN, METH_O, nullptr},
     {"_get_cudnn_enabled", THPModule_userEnabledCuDNN, METH_NOARGS, nullptr},
     {"_set_cudnn_enabled", THPModule_setUserEnabledCuDNN, METH_O, nullptr},
+    {"_get_onednn_sdp_enabled",
+     THPModule_userEnabledOneDNNSDP,
+     METH_NOARGS,
+     nullptr},
+    {"_set_sdp_use_onednn", THPModule_setSDPUseOneDNN, METH_O, nullptr},
     {"_get_mkldnn_enabled", THPModule_userEnabledMkldnn, METH_NOARGS, nullptr},
     {"_set_mkldnn_enabled", THPModule_setUserEnabledMkldnn, METH_O, nullptr},
     {"_get_cudnn_allow_tf32", THPModule_allowTF32CuDNN, METH_NOARGS, nullptr},
@@ -2189,6 +2215,7 @@ Call this whenever a new thread is created in order to propagate values from
       .value("FLASH_ATTENTION", sdp::SDPBackend::flash_attention)
       .value("EFFICIENT_ATTENTION", sdp::SDPBackend::efficient_attention)
       .value("CUDNN_ATTENTION", sdp::SDPBackend::cudnn_attention)
+      .value("ONEDNN_ATTENTION", sdp::SDPBackend::onednn_attention)
       .value("OVERRIDEABLE", sdp::SDPBackend::overrideable);
 
   py_module.def("_is_flash_attention_available", []() {

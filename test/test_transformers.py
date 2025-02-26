@@ -3844,9 +3844,6 @@ class TestSDPACudaOnly(NNTestCase):
 class TestSDPAXpuOnly(NNTestCase):
     """ Used to test XPU only functionality of scaled_dot_product_attention
     Mostly migrate from TestSDPACudaOnly in test/test_transformers.py
-
-    Note that as SDPBackend.OVERRIDEABLE is not managed by sdpa_kernel so that
-    math ref has to be called explicitly via torch.ops.aten._scaled_dot_product_attention_math.
     """
 
     @parametrize("type", ["dense"])
@@ -3861,7 +3858,7 @@ class TestSDPAXpuOnly(NNTestCase):
         if dropout > 0.0 or dtype not in [torch.float32, torch.bfloat16, torch.float16]:
             assert torch._fused_sdp_choice(q, k, v, dropout_p=dropout) == SDPBackend.MATH.value
         else:
-            assert torch._fused_sdp_choice(q, k, v, dropout_p=dropout) == SDPBackend.OVERRIDEABLE.value
+            assert torch._fused_sdp_choice(q, k, v, dropout_p=dropout) == SDPBackend.ONEDNN_ATTENTION.value
 
     def test_fused_attention_different_dk_dv(self, device):
         dtype = torch.bfloat16
@@ -3875,6 +3872,13 @@ class TestSDPAXpuOnly(NNTestCase):
         # test that we do not dispatch to onednn for an unsupported case
         actual = F.scaled_dot_product_attention(
             query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False)
+
+        with sdpa_kernel(backends=[SDPBackend.MATH]):
+            math_ref = torch.nn.functional.scaled_dot_product_attention(
+                query.contiguous().to(torch.float32),
+                key.contiguous().to(torch.float32),
+                value.contiguous().to(torch.float32),
+                attn_mask=None, dropout_p=0.0, is_causal=False)
 
         math_ref = torch.ops.aten._scaled_dot_product_attention_math(
             query.float(), key.float(), value.float(), attn_mask=None, dropout_p=0.0, is_causal=False)[0]
@@ -3891,7 +3895,7 @@ class TestSDPAXpuOnly(NNTestCase):
         k = torch.randn(b, h, s_kv, d_qk, device=device, dtype=torch.bfloat16)
         v = torch.randn(b, h, s_kv, d_v, device=device, dtype=torch.bfloat16)
 
-        with sdpa_kernel(backends=[SDPBackend.OVERRIDEABLE]):
+        with sdpa_kernel(backends=[SDPBackend.ONEDNN_ATTENTION]):
             with self.assertRaisesRegex(RuntimeError, "No available kernel."):
                 _ = F.scaled_dot_product_attention(q, k, v)
 
@@ -3916,15 +3920,17 @@ class TestSDPAXpuOnly(NNTestCase):
             key = key.contiguous()
             value = value.contiguous()
 
-        with sdpa_kernel(backends=[SDPBackend.OVERRIDEABLE]):
+        with sdpa_kernel(backends=[SDPBackend.ONEDNN_ATTENTION]):
             actual = torch.nn.functional.scaled_dot_product_attention(
                 query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False)
-        math_ref = torch.ops.aten._scaled_dot_product_attention_math(
-            query.contiguous(), key.contiguous(), value.contiguous(), attn_mask=None, dropout_p=0.0, is_causal=False)[0]
+        with sdpa_kernel(backends=[SDPBackend.MATH]):
+            math_ref = torch.nn.functional.scaled_dot_product_attention(
+                query.contiguous(), key.contiguous(), value.contiguous(),
+                attn_mask=None, dropout_p=0.0, is_causal=False)
 
         self.assertEqual(actual.contiguous(), math_ref.contiguous(), atol=2e-3, rtol=1e-2)
 
-    @parametrize("fused_kernel", [SDPBackend.MATH, SDPBackend.OVERRIDEABLE])
+    @parametrize("fused_kernel", [SDPBackend.MATH, SDPBackend.ONEDNN_ATTENTION])
     @parametrize("dtype", [torch.half, torch.bfloat16, torch.float32])
     @parametrize("batch_size,n_head,q_size,kv_size,head_dim", [
         (2, 5, 9216, 9216, 64),
@@ -3999,15 +4005,12 @@ class TestSDPAXpuOnly(NNTestCase):
         v2 = v2.view(batch_size, kv_size, n_head, head_dim).transpose(1, 2)
         attn_mask2 = attn_mask.float() if attn_mask is not None else None
 
-        if fused_kernel == SDPBackend.MATH:
-            actual = torch.ops.aten._scaled_dot_product_attention_math(
-                q, k, v, attn_mask=attn_mask, dropout_p=0.0, is_causal=is_causal)[0]
-        elif fused_kernel == SDPBackend.OVERRIDEABLE:
-            actual = torch.ops.aten._scaled_dot_product_fused_attention_overrideable(
-                q, k, v, attn_bias=attn_mask, dropout_p=0.0, is_causal=is_causal)[0]
-
-        math_ref = torch.ops.aten._scaled_dot_product_attention_math(
-            q2, k2, v2, attn_mask=attn_mask2, dropout_p=0.0, is_causal=is_causal)[0]
+        with sdpa_kernel(backends=[SDPBackend.ONEDNN_ATTENTION]):
+            actual = torch.nn.functional.scaled_dot_product_attention(
+                q, k, v, attn_mask=attn_mask, dropout_p=0.0, is_causal=is_causal)
+        with sdpa_kernel(backends=[SDPBackend.MATH]):
+            math_ref = torch.nn.functional.scaled_dot_product_attention(
+                q2, k2, v2, attn_mask=attn_mask2, dropout_p=0.0, is_causal=is_causal)
 
         self.assertEqual(actual.float(), math_ref, atol=tol.atol, rtol=tol.rtol)
 

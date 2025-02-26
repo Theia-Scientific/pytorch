@@ -24,6 +24,8 @@ __all__ = [
     "flash_sdp_enabled",
     "enable_mem_efficient_sdp",
     "mem_efficient_sdp_enabled",
+    "enable_onednnn_sdp",
+    "onednnn_sdp_enabled",
     "math_sdp_enabled",
     "enable_math_sdp",
     "allow_fp16_bf16_reduction_math_sdp",
@@ -32,6 +34,7 @@ __all__ = [
     "can_use_flash_attention",
     "can_use_efficient_attention",
     "can_use_cudnn_attention",
+    "can_use_onednn_attention",
     "sdp_kernel",
 ]
 
@@ -488,6 +491,24 @@ def enable_cudnn_sdp(enabled: bool):
     torch._C._set_sdp_use_cudnn(enabled)
 
 
+def onednn_sdp_enabled():
+    r"""
+    .. warning:: This flag is beta and subject to change.
+
+    Returns whether OneDNN scaled dot product attention is enabled or not.
+    """
+    return torch._C._get_onednn_sdp_enabled()
+
+
+def enable_onednn_sdp(enabled: bool):
+    r"""
+    .. warning:: This flag is beta and subject to change.
+
+    Enables or disables OneDNN scaled dot product attention.
+    """
+    torch._C._set_sdp_use_onednn(enabled)
+
+
 @contextlib.contextmanager
 @deprecated(
     (
@@ -503,6 +524,7 @@ def sdp_kernel(
     enable_math: bool = True,
     enable_mem_efficient: bool = True,
     enable_cudnn: bool = True,
+    enable_onednn: bool = True,
 ):
     r"""
     .. warning:: This flag is beta and subject to change.
@@ -521,6 +543,8 @@ def sdp_kernel(
         backend_list.append(SDPBackend.MATH)
     if enable_cudnn:
         backend_list.append(SDPBackend.CUDNN_ATTENTION)
+    if enable_onednn:
+        backend_list.append(SDPBackend.ONEDNN_ATTENTION)
 
     with sdpa_kernel(backend_list) as context:
         try:

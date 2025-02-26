@@ -244,7 +244,7 @@ def gen_returns(schema: FunctionSchema) -> tuple[list[str], list[str]]:
         "_scaled_dot_product_flash_attention",
         "_scaled_dot_product_efficient_attention",
         "_scaled_dot_product_cudnn_attention",
-        "_scaled_dot_product_fused_attention_overrideable",
+        "_scaled_dot_product_onednn_attention",
         "convolution_backward",
     ]:
         if name in unambiguous_name:

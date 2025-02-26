@@ -189,6 +189,14 @@ void Context::setSDPUseCuDNN(bool e) {
   enabled_cudnnSDP = e;
 }
 
+bool Context::userEnabledOneDNNSDP() const {
+  return enabled_onednnSDP;
+}
+
+void Context::setSDPUseOneDNN(bool e) {
+  enabled_onednnSDP = e;
+}
+
 void Context::setSDPUseOverrideable(bool e) {
   enabled_overrideable = e;
 }

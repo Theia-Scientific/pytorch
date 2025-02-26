@@ -5609,8 +5609,8 @@ def meta__scaled_dot_product_cudnn_attention(
     )
 
 
-@register_meta([aten._scaled_dot_product_fused_attention_overrideable])
-def meta__scaled_dot_product_fused_attention_overrideable(
+@register_meta([aten._scaled_dot_product_onednn_attention])
+def meta__scaled_dot_product_onednn_attention(
     query: Tensor,
     key: Tensor,
     value: Tensor,

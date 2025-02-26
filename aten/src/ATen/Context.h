@@ -232,6 +232,9 @@ class TORCH_API Context {
   void setSDPUseCuDNN(bool);
   bool userEnabledCuDNNSDP() const;
 
+  void setSDPUseOneDNN(bool);
+  bool userEnabledOneDNNSDP() const;
+
   void setAllowFP16BF16ReductionMathSDP(bool);
   bool allowFP16BF16ReductionMathSDP() const;
 
@@ -411,6 +414,7 @@ class TORCH_API Context {
   bool enabled_mem_efficientSDP = true;
   bool enabled_mathSDP = true;
   bool enabled_cudnnSDP = true;
+  bool enabled_onednnSDP = true;
   bool enabled_overrideable = true;
   bool allow_fp16_bf16_reduction_mathSDP = false;
   bool benchmark_cudnn = false;

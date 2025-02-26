@@ -2756,12 +2756,7 @@ make_fallback(
     warn=False,
 )
 make_fallback(
-    aten._scaled_dot_product_fused_attention_overrideable.default,
-    sdpa_constraint,
-    warn=False,
-)
-make_fallback(
-    aten._scaled_dot_product_fused_attention_overrideable_backward.default,
+    aten._scaled_dot_product_onednn_attention.default,
     sdpa_constraint,
     warn=False,
 )

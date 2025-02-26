@@ -10,7 +10,8 @@ enum class SDPBackend {
   flash_attention = 1,
   efficient_attention = 2,
   cudnn_attention = 3,
-  overrideable = 4
+  onednn_attention = 4,
+  overrideable = 5
 };
 
 } // namespace at

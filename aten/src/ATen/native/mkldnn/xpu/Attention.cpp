@@ -47,7 +47,7 @@ bool check_no_grad(sdp::sdp_params const& params, bool debug) {
   return !any_inputs_require_grad || !gradmode_enabled;
 }
 
-bool use_overrideable_xpu(sdp::sdp_params const& params, bool debug) {
+bool use_onednn_xpu(sdp::sdp_params const& params, bool debug) {
   constexpr auto supported_dtypes = c10::array_of<at::ScalarType>(
       at::kFloat, at::kBFloat16, at::kHalf); // double is not supported
 
@@ -76,14 +76,13 @@ sdp::SDPBackend select_sdp_backend_xpu(sdp::sdp_params const& kernel_params) {
   // 1. Flash Attention
   // 2. Math fallback
   auto& ctx = at::globalContext();
-  // use overrideable linked to onednn as overrideable implementation
-  if (!ctx.userEnabledMathSDP() && !ctx.userEnabledOverrideableSDP()) {
+  if (!ctx.userEnabledMathSDP() && !ctx.userEnabledOneDNNSDP()) {
     return sdp::SDPBackend::error;
   }
 
   // Get ideal kernel ordering
   const std::array<sdp::SDPBackend, 2> priority_order{
-      sdp::SDPBackend::overrideable,
+      sdp::SDPBackend::onednn_attention,
       sdp::SDPBackend::math,
   };
 
@@ -92,10 +91,10 @@ sdp::SDPBackend select_sdp_backend_xpu(sdp::sdp_params const& kernel_params) {
   bool print_debug = false;
   for (auto& backend : priority_order) {
     switch (backend) {
-      case sdp::SDPBackend::overrideable:
-        if (ctx.userEnabledOverrideableSDP() &&
-            use_overrideable_xpu(kernel_params, print_debug)) {
-          return sdp::SDPBackend::overrideable;
+      case sdp::SDPBackend::onednn_attention:
+        if (ctx.userEnabledOneDNNSDP() &&
+            use_onednn_xpu(kernel_params, print_debug)) {
+          return sdp::SDPBackend::onednn_attention;
         }
         break;
       case sdp::SDPBackend::math:
@@ -108,14 +107,14 @@ sdp::SDPBackend select_sdp_backend_xpu(sdp::sdp_params const& kernel_params) {
     }
   }
   // If we have gotten to this point then two things have happened:
-  // 1. use_overrideable_xpu did not satisfy the constraints to be ran
+  // 1. use_onednn_xpu did not satisfy the constraints to be ran
   // 2. The user has explicitly disabled the math kernel
   // We then re-run the kernel checks with debug enabled to print out the
   // reason why the kernel was not selected
 
   print_debug = true;
   TORCH_WARN("OneDNN kernel not used because:");
-  use_overrideable_xpu(kernel_params, print_debug);
+  use_onednn_xpu(kernel_params, print_debug);
   TORCH_CHECK(!print_debug, "No available kernel. Aborting execution.")
   return sdp::SDPBackend::error;
 }
@@ -154,7 +153,7 @@ std::tuple<
     at::Tensor,
     at::Tensor,
     at::Tensor>
-_scaled_dot_product_fused_attention_overrideable_xpu(
+_scaled_dot_product_onednn_attention_xpu(
     const at::Tensor& query,
     const at::Tensor& key,
     const at::Tensor& value,
@@ -165,20 +164,20 @@ _scaled_dot_product_fused_attention_overrideable_xpu(
     std::optional<double> scale) {
   TORCH_INTERNAL_ASSERT(
       query.dim() == 4 && key.dim() == 4 && value.dim() == 4,
-      "scaled_dot_product_fused_attention_overrideable_xpu: Accept only 4 dims inputs shape of {(B), H, T, K}");
+      "scaled_dot_product_fused_attention_onednn_xpu: Accept only 4 dims inputs shape of {(B), H, T, K}");
   TORCH_INTERNAL_ASSERT(
       (key.size(0) == value.size(0)) && (key.size(1) == value.size(1)) &&
           (key.size(2) == value.size(2)),
-      "scaled_dot_product_fused_attention_overrideable_xpu: K/V should have the same batch / seq / num_head");
+      "scaled_dot_product_fused_attention_onednn_xpu: K/V should have the same batch / seq / num_head");
   TORCH_INTERNAL_ASSERT(
       query.size(3) == key.size(3),
-      "scaled_dot_product_fused_attention_overrideable_xpu: Q/K should have the same head_dim");
+      "scaled_dot_product_fused_attention_onednn_xpu: Q/K should have the same head_dim");
   TORCH_INTERNAL_ASSERT(
       dropout_p == 0.0,
-      "scaled_dot_product_fused_attention_overrideable_xpu: Currently do not support dropout > 0");
+      "scaled_dot_product_fused_attention_onednn_xpu: Currently do not support dropout > 0");
   TORCH_INTERNAL_ASSERT(
       !(attn_bias.has_value() && is_causal),
-      "scaled_dot_product_fused_attention_overrideable_xpu: attn_bias cannot present with is_causal");
+      "scaled_dot_product_fused_attention_onednn_xpu: attn_bias cannot present with is_causal");
 
   const int64_t batch_size = query.size(0);
   const int64_t num_head = query.size(1);

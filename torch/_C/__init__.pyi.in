@@ -1173,6 +1173,8 @@ def _get_sdp_priority_order() -> List[_int]: ... #THPModule_getSDPPriorityOrder
 def _set_sdp_priority_order(arg: List[_int]) -> None: ... #THPModule_setSDPPriorityOrder
 def _get_cudnn_sdp_enabled() -> _bool: ...  # THPModule_userEnabledMathSDP
 def _set_sdp_use_cudnn(arg: _bool) -> None: ...  # THPModule_setSDPUseMath
+def _get_onednn_sdp_enabled() -> _bool: ...  # THPModule_userEnabledOneDNNSDP
+def _set_sdp_use_onednn(arg: _bool) -> None: ...  # THPModule_setSDPUseOneDNN
 def _get_mkldnn_enabled() -> _bool: ...  # THPModule_userEnabledMkldnn
 def _set_mkldnn_enabled(arg: _bool) -> None: ...  # THPModule_setUserEnabledMkldnn
 def _get_cudnn_benchmark() -> _bool: ...  # THPModule_benchmarkCuDNN
@@ -2034,6 +2036,7 @@ class _SDPBackend(Enum):
     FLASH_ATTENTION = 1
     EFFICIENT_ATTENTION = 2
     CUDNN_ATTENTION = 3
+    ONEDNN_ATTENTION = 4
 
 def _is_flash_attention_available() -> _bool: ...
 def _can_use_cudnn_attention(params: _SDPAParams, debug: _bool) -> _bool: ...

@@ -41,6 +41,7 @@
 #include <ATen/ops/_scaled_dot_product_flash_attention_backward_native.h>
 #include <ATen/ops/_scaled_dot_product_flash_attention_native.h>
 #include <ATen/ops/_scaled_dot_product_cudnn_attention.h>
+#include <ATen/ops/_scaled_dot_product_onednn_attention.h>
 #include <ATen/ops/_scaled_dot_product_flash_attention_for_cpu.h>
 #include <ATen/ops/_scaled_dot_product_flash_attention_for_cpu_native.h>
 #include <ATen/ops/_scaled_dot_product_flash_attention_for_cpu_backward.h>
@@ -744,6 +745,11 @@ Tensor scaled_dot_product_attention(
       auto out_and_lse = at::_scaled_dot_product_efficient_attention(
           query_, key, value, attn_mask, compute_logsumexp, dropout_p, is_causal, scale);
       return std::get<0>(out_and_lse);
+    }
+    case SDPBackend::onednn_attention: {
+      auto outs = at::_scaled_dot_product_onednn_attention(
+          query_, key, value, attn_mask, dropout_p, is_causal, false /*return_debug_mask*/, scale);
+      return std::get<0>(outs);
     }
     case SDPBackend::overrideable: {
       auto out_lse_softmax = at::_scaled_dot_product_fused_attention_overrideable(
